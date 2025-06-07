@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang='en' dir='ltr'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Casino Dealer Schedule System</title>
+<script src='https://cdn.tailwindcss.com'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'></script>
+</head>
+<body class='bg-gray-100 min-h-screen flex flex-col'>
+
+<!-- پیام وضعیت ذخیره‌سازی محلی -->
+<div id="local-storage-status-message" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative text-center text-sm">
+  <strong class="font-bold">Local Storage Mode:</strong>
+  <span class="block sm:inline">Data is saved to your browser's local storage. It will not be synced across devices or shared.</span>
+</div>
+
+<!-- Custom Alert/Confirm Modal -->
+<div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+  <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
+    <h3 id="modal-title" class="text-lg font-semibold mb-3"></h3>
+    <p id="modal-message" class="text-gray-700 mb-6"></p>
+    <div class="flex justify-end gap-3">
+      <button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors hidden">Cancel</button>
+      <button id="modal-ok" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Top Navigation -->
+<nav class='bg-gray-800 text-white flex flex-wrap gap-1 p-2'>
+  <button class='nav-btn px-3 py-2 rounded hover:bg-gray-700 transition-colors' data-target='games'>Games</button>
+  <button class='nav-btn px-3 py-2 rounded hover:bg-gray-700 transition-colors' data-target='dealers'>Dealers</button>
+  <button class='nav-btn px-3 py-2 rounded hover:bg-gray-700 transition-colors' data-target='weekly-schedules'>Weekly Schedules</button>
+  <button class='nav-btn px-3 py-2 rounded hover:bg-gray-700 transition-colors' data-target='pit'>Pit Management</button>
+  <button class='nav-btn px-3 py-2 rounded hover:bg-gray-700 transition-colors' data-target='schedule'>Daily Schedule</button>
+  <button class='nav-btn px-3 py-2 rounded hover:bg-gray-700 transition-colors' data-target='about'>About / Instructions</button>
+  <div class='ml-auto flex items-center gap-2'>
+    <span class="text-xs text-gray-400">Mode: <span id="user-id-display" class="font-mono text-gray-200">Local Storage</span></span>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT AREA -->
+<main class='flex-1 overflow-auto'>
+  <!-- About / Instructions Section -->
+  <section id='about' class='p-4'>
+    <h2 class='text-2xl font-bold mb-4'>Welcome to the Casino Dealer Scheduling System!</h2>
+    <div class="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
+      <p class="mb-4 text-gray-700 leading-relaxed">This application helps you comprehensively manage your casino's dealer shifts. You can define game, dealer, and table information, create and download weekly schedules, and precisely adjust daily assignments.</p>
+      <ul class="list-disc list-inside text-gray-700 mb-4">
+        <li class="mb-2"><span class="font-semibold">Games:</span> Add and manage the games available in your casino.</li>
+        <li class="mb-2"><span class="font-semibold">Dealers:</span> Enter complete dealer information including name, employee number, seniority level, job positions (e.g., Dealer, Supervisor), and the games they are proficient in.</li>
+        <li class="mb-2"><span class="font-semibold">Weekly Schedules:</span> Plan weekly dealer shifts similar to your existing Excel spreadsheets. Features include week selection, copying from previous weeks, and Excel download.</li>
+        <li class="mb-2"><span class="font-semibold">Pit Management:</span> Control the open or closed status of tables within each pit.</li>
+        <li class="mb-2"><span class="font-semibold">Daily Schedule:</span> Assign dealers to tables in 20-minute time slots. In this section, you can manually add or remove dealers from the daily roster and adjust their shift start/end times.</li>
+      </ul>
+      <p class="text-sm text-gray-500">This application was developed by AI based on your specific requirements. Feel free to request any further changes or new features.</p>
+    </div>
+  </section>
+
+  <!-- Games Section -->
+  <section id='games' class='p-4 hidden'>
+    <h2 class='text-2xl font-bold mb-4'>Games Management</h2>
+    <div class='flex flex-wrap gap-3 mb-6 bg-white p-4 rounded-lg shadow-md'>
+      <input id='game-name' placeholder='Game name' class='border px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-48'>
+      <input id='game-init' placeholder='Init. (e.g., BJK)' maxlength='4' class='border px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-32'>
+      <button id='add-game' class='bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex-grow sm:flex-grow-0'>Add Game</button>
+    </div>
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <table class='w-full text-sm text-left'>
+        <thead class='bg-gray-200'>
+          <tr>
+            <th class='p-3 text-left'>Name</th>
+            <th class='p-3 text-center'>Init.</th>
+            <th class='p-3 w-20 text-center'>Delete</th>
+          </tr>
+        </thead>
+        <tbody id='games-body'>
+          <!-- Games will be rendered here -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Dealers Section -->
+  <section id='dealers' class='p-4 hidden'>
+    <h2 class='text-2xl font-bold mb-4'>Dealers Management</h2>
+    <div class="mb-6">
+      <button id='open-add-dealer-modal' class='bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors'>Add New Dealer</button>
+    </div>
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <table class='w-full text-sm text-left'>
+        <thead class='bg-gray-200'>
+          <tr>
+            <th class='p-3 text-left'>Name</th>
+            <th class='p-3 text-center'>Employee No.</th>
+            <th class='p-3 text-center'>Seniority</th>
+            <th class='p-3 text-center'>Positions</th>
+            <th class='p-3 text-center'>Games</th>
+            <th class='p-3 w-20 text-center'>Actions</th>
+          </tr>
+        </thead>
+        <tbody id='dealers-body'>
+          <!-- Dealers will be rendered here -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Modal Add/Edit Dealer -->
+  <div id='dealer-modal' class='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50'>
+    <div class='bg-white rounded-lg shadow-xl w-full max-w-lg p-6'>
+      <h3 id="dealer-modal-title" class='font-bold text-xl mb-4'>Add New Dealer</h3>
+      <div class='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
+        <div><label class='block text-sm font-medium text-gray-700 mb-1'>First Name</label><input id='dealer-first-name' placeholder='First Name' class='border px-3 py-2 rounded-md w-full'></div>
+        <div><label class='block text-sm font-medium text-gray-700 mb-1'>Last Name</label><input id='dealer-last-name' placeholder='Last Name' class='border px-3 py-2 rounded-md w-full'></div>
+        <div><label class='block text-sm font-medium text-gray-700 mb-1'>Employee Number</label><input id='dealer-employee-number' type='text' placeholder='Employee Number' class='border px-3 py-2 rounded-md w-full'></div>
+        <div><label class='block text-sm font-medium text-gray-700 mb-1'>Seniority Level</label><input id='dealer-seniority-level' type='number' placeholder='Seniority Level (Unique)' class='border px-3 py-2 rounded-md w-full'></div>
+      </div>
+      <div class='mb-4'>
+        <label class='block text-sm font-medium text-gray-700 mb-1'>Positions (Multi-choice)</label>
+        <div id='dealer-positions' class='flex flex-wrap gap-x-4 gap-y-2 border p-3 rounded-md bg-gray-50 max-h-32 overflow-y-auto'>
+          <label class='inline-flex items-center'><input type='checkbox' value='Dealer1' class='form-checkbox dealer-position mr-2'> Dealer 1</label>
+          <label class='inline-flex items-center'><input type='checkbox' value='Dealer2' class='form-checkbox dealer-position mr-2'> Dealer 2</label>
+          <label class='inline-flex items-center'><input type='checkbox' value='Dealer3' class='form-checkbox dealer-position mr-2'> Dealer 3</label>
+          <label class='inline-flex items-center'><input type='checkbox' value='Relief Sup' class='form-checkbox dealer-position mr-2'> Relief Sup</label>
+        </div>
+      </div>
+      <div class='mb-6'>
+        <label class='block text-sm font-medium text-gray-700 mb-1'>Games (Checkboxes)</label>
+        <div id='dealer-games-checkboxes' class='flex flex-wrap gap-x-4 gap-y-2 border p-3 rounded-md bg-gray-50 max-h-32 overflow-y-auto'>
+          <!-- Game checkboxes will be dynamically inserted here -->
+        </div>
+      </div>
+      <div class='flex justify-end gap-3'>
+        <button id='cancel-dealer-modal' class='px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors'>Cancel</button>
+        <button id='save-dealer' class='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'>Save Dealer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tables Section (Not used as a visible section, but its elements are used for table management) -->
+  <section id='tables' class='p-4 hidden'>
+    <h2 class='text-2xl font-bold mb-4'>Tables Management</h2>
+    <div class='flex flex-wrap gap-3 mb-6 bg-white p-4 rounded-lg shadow-md'>
+      <!-- This section is now hidden as its functionality moved to Pit Management -->
+    </div>
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <!-- Table display is now handled in Pit Management -->
+    </div>
+  </section>
+
+  <!-- Pit Management Section -->
+  <section id='pit' class='p-4 hidden'>
+    <h2 class='text-2xl font-bold mb-4 flex justify-between items-center'>
+      Pit Management
+      <button id='open-add-table-modal' class='bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm'>ADD NEW TABLE</button>
+    </h2>
+    <div id='pit-wrapper' class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+      <!-- Pit cards will be rendered here -->
+    </div>
+  </section>
+
+  <!-- Modal Add New Table (for Pit Management) -->
+  <div id='add-table-modal' class='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50'>
+    <div class='bg-white rounded-lg shadow-xl w-full max-w-lg p-6'>
+      <h3 class='font-bold text-xl mb-4'>Add New Table</h3>
+      <div class='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
+        <div><label class='block text-sm font-medium text-gray-700 mb-1'>Table Name</label><input id='new-table-name' placeholder='Table Name' class='border px-3 py-2 rounded-md w-full'></div>
+        <div><label class='block text-sm font-medium text-gray-700 mb-1'>Table Label</label><input id='new-table-label' placeholder='e.g., B1, POKER1' maxlength='4' class='border px-3 py-2 rounded-md w-full'></div>
+      </div>
+      <div class='grid grid-cols-1 md:grid-cols-2 gap-4 mb-6'>
+        <div>
+          <label class='block text-sm font-medium text-gray-700 mb-1'>Game Type</label>
+          <select id='new-table-game-type' class='border px-3 py-2 rounded-md w-full'>
+            <option value="">Select Game</option>
+            <!-- Game options will be dynamically inserted here -->
+          </select>
+        </div>
+        <div>
+          <label class='block text-sm font-medium text-gray-700 mb-1'>Location</label>
+          <select id='new-table-location' class='border px-3 py-2 rounded-md w-full'>
+            <option value='1'>Pit 1</option>
+            <option value='2'>Pit 2</option>
+            <option value='3'>Pit 3</option>
+            <option value='4'>Pit 4</option>
+          </select>
+        </div>
+      </div>
+      <div class='flex justify-end gap-3'>
+        <button id='cancel-add-table-modal' class='px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors'>Cancel</button>
+        <button id='save-new-table' class='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'>Save Table</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Weekly Schedules Section (Rewritten) -->
+  <section id='weekly-schedules' class='p-4 hidden'>
+    <h2 class='text-2xl font-bold mb-4 flex justify-between items-center'>
+      Weekly Schedules
+      <button id='toggle-excel-view' class='bg-gray-300 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-400 transition-colors text-sm'>📊 Excel View</button>
+    </h2>
+    <div class='flex flex-wrap gap-3 mb-6 items-center bg-white p-4 rounded-lg shadow-md'>
+      <button id='prev-week' class='bg-gray-300 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-400 transition-colors'>Previous Week</button>
+      <span id='current-week-display' class='font-semibold text-lg'></span>
+      <button id='next-week' class='bg-gray-300 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-400 transition-colors'>Next Week</button>
+      <button id='new-week' class='bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors'>Create New Week</button>
+      <button id='clone-to-next-week' class='bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition-colors'>Clone to Next Week</button>
+      <button id='download-weekly-excel' class='bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors'>Download Excel</button>
+    </div>
+    <div class='overflow-x-auto border rounded-lg bg-white shadow-md' id='weekly-sched-container'>
+      <table id='weekly-sched-table' class='min-w-full text-xs text-left'>
+        <thead class='sticky top-0 bg-gray-200'>
+          <tr id='weekly-sched-head'>
+            <th class='p-2 border-r'>Dealer Name</th>
+            <th class='p-2 border-r'>Position</th>
+            <!-- Weekday headers will be dynamically added here -->
+          </tr>
+        </thead>
+        <tbody id='weekly-sched-body'>
+          <!-- Weekly schedule will be rendered here -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Daily Schedule Section -->
+  <section id='schedule' class='p-4 hidden'>
+    <h2 class='text-2xl font-bold mb-4'>Daily Schedule</h2>
+    <div class='flex flex-wrap gap-3 mb-6 items-center bg-white p-4 rounded-lg shadow-md'>
+      <input type="date" id="schedule-date-picker" class="border px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <button id='add-dealer-to-daily-roster' class='bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors'>Add Dealer to Daily Roster</button>
+    </div>
+    <div class='overflow-x-auto border rounded-lg bg-white shadow-md'>
+      <table id='sched-table' class='min-w-max text-xs text-left'>
+        <thead class='sticky top-0 bg-gray-200'>
+          <tr id='sched-head'>
+            <th class='p-2 border-r'>Time In</th>
+            <th class='p-2 border-r'>Time Out</th>
+            <th class='p-2 border-r'>Dealer</th>
+            <th class='p-2 border-r'>Games</th>
+            <!-- Time slots will be dynamically added here -->
+          </tr>
+        </thead>
+        <tbody id='sched-body'>
+          <!-- Daily schedule will be rendered here -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Modal Add Dealer to Daily Roster -->
+  <div id='add-daily-dealer-modal' class='fixed inset-0 bg-black bg-opacity50 flex items-center justify-center hidden z-50'>
+    <div class='bg-white rounded-lg shadow-xl w-full max-w-lg p-6'>
+      <h3 class='font-bold text-xl mb-4'>Add Dealer to Daily Roster</h3>
+      <input id='search-daily-dealer' placeholder='Search dealer...' class='border px-3 py-2 rounded-md w-full mb-3'>
+      <div id='daily-dealer-list' class='max-h-48 overflow-y-auto border rounded-md mb-4 bg-gray-50'></div>
+      <div class='grid grid-cols-2 gap-4 mb-6'>
+        <div><label class='block text-sm font-medium text-gray-700 mb-1'>Time In</label><input id='daily-dealer-time-in' type='time' value='14:00' class='border px-3 py-2 rounded-md w-full'></div>
+        <div><label class='block text-sm font-medium text-gray-700 mb-1'>Time Out</label><input id='daily-dealer-time-out' type='time' value='21:00' class='border px-3 py-2 rounded-md w-full'></div>
+      </div>
+      <div class='flex justify-end gap-3'>
+        <button id='cancel-add-daily-dealer' class='px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors'>Cancel</button>
+        <button id='confirm-add-daily-dealer' class='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors' disabled>Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick pick menu for schedule cells -->
+  <div id='pickMenu' class='absolute bg-white border rounded-md shadow-lg hidden text-xs z-40 p-1'></div>
+
+  <!-- Context menu for dealer name in daily schedule -->
+  <div id='dealer-context-menu' class='absolute bg-white border rounded-md shadow-lg hidden text-sm z-40'>
+    <button id='delete-daily-roster-entry' class='block w-full text-left px-3 py-2 hover:bg-gray-100 transition-colors'>Remove from Daily Roster</button>
+    <!-- More options can be added here later -->
+  </div>
+
+</main>
+
+<style>
+  /* Styles moved here to be loaded after HTML structure but before JS execution */
+  body {
+    font-family: 'Inter', sans-serif;
+  }
+  td.w-6{min-width:1.5rem} /* For daily schedule grid cells */
+
+  /* Sticky columns for daily schedule */
+  #sched-table th:nth-child(1),
+  #sched-table td:nth-child(1) { position: sticky; left: 0; z-index: 3; background-color: white; } /* Time In */
+  #sched-table th:nth-child(2),
+  #sched-table td:nth-child(2) { position: sticky; left: 60px; z-index: 3; background-color: white; } /* Time Out */
+  #sched-table th:nth-child(3),
+  #sched-table td:nth-child(3) { position: sticky; left: 120px; z-index: 3; background-color: white; } /* Dealer Name */
+  #sched-table th:nth-child(4),
+  #sched-table td:nth-child(4) { position: sticky; left: 180px; z-index: 3; background-color: white; } /* Games */
+
+  /* Sticky columns for weekly schedule */
+  /* Adjusted widths to prevent overlap and better alignment */
+  #weekly-sched-table th:nth-child(1),
+  #weekly-sched-table td:nth-child(1) { position: sticky; left: 0; z-index: 2; background-color: white; border-right: 1px solid #e5e7eb; min-width: 180px; } /* Dealer Name - Adjusted width */
+  #weekly-sched-table th:nth-child(2),
+  #weekly-sched-table td:nth-child(2) { position: sticky; left: 180px; z-index: 2; background-color: white; border-right: 1px solid #e5e7eb; min-width: 100px; } /* Positions - Adjusted width */
+
+  /* Styles for the Excel View mode */
+  #weekly-sched-container.excel-view .weekly-shift-input-wrapper {
+      display: flex;
+      flex-direction: row; /* Keep elements in a row */
+      align-items: center; /* Vertically align items */
+      gap: 4px; /* Small gap between elements */
+  }
+
+  #weekly-sched-container.excel-view .weekly-shift-input-wrapper select,
+  #weekly-sched-container.excel-view .weekly-shift-input-wrapper input[type="time"] {
+      border: none !important; /* Remove borders */
+      padding: 0 !important; /* Remove padding */
+      margin: 0 !important; /* Remove margins */
+      background-color: transparent !important; /* Transparent background */
+      text-align: center !important; /* Center text */
+      font-size: inherit; /* Inherit font size */
+      height: auto; /* Auto height */
+      line-height: normal; /* Normal line height */
+  }
+  
+  #weekly-sched-container.excel-view .weekly-shift-input-wrapper .color-picker-wrapper {
+      display: none; /* Hide color pickers in excel view */
+  }
+
+  #weekly-sched-container.excel-view .weekly-shift-input-wrapper input[type="time"]::-webkit-calendar-picker-indicator {
+      display: none; /* Hide time picker icon */
+  }
+
+  #weekly-sched-container.excel-view .weekly-shift-input-wrapper input[type="time"]::-moz-placeholder { /* Firefox 19+ */
+      color: transparent;
+  }
+  #weekly-sched-container.excel-view .weekly-shift-input-wrapper input[type="time"]:-ms-input-placeholder { /* IE 10+ */
+      color: transparent;
+  }
+  #weekly-sched-container.excel-view .weekly-shift-input-wrapper input[type="time"]::placeholder {
+      color: transparent;
+  }
+
+  /* Custom Scrollbar for better UX */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  /* Inline color picker style with emoji */
+  .color-picker-wrapper {
+      position: relative;
+      display: inline-flex; /* Changed to inline-flex to better align emoji */
+      align-items: center; /* Vertically align content */
+      justify-content: center; /* Horizontally center content */
+      width: 24px; /* Increased size for emoji */
+      height: 24px; /* Increased size for emoji */
+      border: 1px solid #ccc;
+      border-radius: 50%;
+      overflow: hidden;
+      cursor: pointer;
+      vertical-align: middle;
+      margin-left: 4px; /* Adjust spacing */
+      box-sizing: border-box; /* Include padding/border in element's total width and height */
+      background-color: inherit; /* Ensure background color comes from parent for visible color */
+  }
+
+  .color-picker-wrapper::before {
+      content: '🖌️'; /* Paintbrush emoji */
+      font-size: 14px; /* Adjust emoji size */
+      line-height: 1; /* Ensure emoji is vertically centered */
+      pointer-events: none; /* Make emoji not interfere with click on select */
+      z-index: 1; /* Place emoji above the select */
+  }
+
+  .color-picker-wrapper select { /* Select element is still the color input */
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0; /* Hide the native select */
+      cursor: pointer;
+      z-index: 2; /* Place select above emoji to capture clicks */
+  }
+</style>
+
+<script type="module">
+  // --- Global State Variables ---
+  let games = [];
+  let dealers = [];
+  let tables = [];
+  let weeklySchedules = [];
+  let currentWeeklyScheduleId = null;
+  let currentDailyRosterDate = new Date();
+  let dailyRoster = [];
+  let isExcelView = false; // New state variable for Excel View
+
+  // --- Helper Functions ---
+
+  // Custom Modal for alerts and confirmations
+  function showCustomModal(title, message, isConfirm = false) {
+    return new Promise(resolve => {
+      const modal = document.getElementById('custom-modal');
+      const modalTitle = document.getElementById('modal-title');
+      const modalMessage = document.getElementById('modal-message');
+      const modalOk = document.getElementById('modal-ok');
+      const modalCancel = document.getElementById('modal-cancel');
+
+      modalTitle.textContent = title;
+      modalMessage.textContent = message;
+
+      if (isConfirm) {
+        modalCancel.classList.remove('hidden');
+        modalOk.textContent = 'Confirm';
+      } else {
+        modalCancel.classList.add('hidden');
+        modalOk.textContent = 'OK';
+      }
+
+      modal.classList.remove('hidden');
+
+      const handleOk = () => {
+        modal.classList.add('hidden');
+        modalOk.removeEventListener('click', handleOk);
+        modalCancel.removeEventListener('click', handleCancel);
+        resolve(true);
+      };
+
+      const handleCancel = () => {
+        modal.classList.add('hidden');
+        modalOk.removeEventListener('click', handleOk);
+        modalCancel.removeEventListener('click', handleCancel);
+        resolve(false);
+      };
+
+      modalOk.addEventListener('click', handleOk);
+      if (isConfirm) {
+        modalCancel.addEventListener('click', handleCancel);
+      }
+    });
+  }
+
+  // Generate unique ID
+  const uid = () => ('_' + Math.random().toString(36).slice(2, 9));
+
+  // Format number to two digits (e.g., 5 -> "05")
+  const fmt = n => n.toString().padStart(2, '0');
+
+  // Parse time string "HH:MM" into {h, m} object
+  const parseTime = t => { const [h, m] = t.split(':').map(Number); return { h, m }; };
+
+  // Constants for casino day definition
+  const CASINO_DAY_START_HOUR = 7; // 7 AM
+  const TOTAL_DAILY_SLOTS = 75; // 25 hours * 3 slots/hour (7 AM to 4 AM next day)
+
+  // Calculate 20-minute slot index (0-based) for a given time
+  const slotIndex = (timeString) => {
+    let { h, m } = parseTime(timeString);
+    let totalMinutes;
+    if (h >= CASINO_DAY_START_HOUR) {
+      totalMinutes = (h - CASINO_DAY_START_HOUR) * 60 + m;
+    } else { // Times from 00:00 to 06:59 are part of the previous casino day
+      totalMinutes = (h + 24 - CASINO_DAY_START_HOUR) * 60 + m;
+    }
+    return Math.floor(totalMinutes / 20);
+  };
+
+  // Convert slot index back to time string
+  const slotToTime = (slotIdx) => {
+    let totalMinutes = slotIdx * 20;
+    let hours = Math.floor(totalMinutes / 60) + CASINO_DAY_START_HOUR;
+    let minutes = totalMinutes % 60;
+
+    if (hours >= 24) {
+      hours -= 24;
+    }
+    return `${fmt(hours)}:${fmt(minutes)}`;
+  };
+
+  // --- Local Storage Functions ---
+  // Helper functions for loading and saving data to Local Storage
+  const loadFromLocalStorage = (key) => {
+    try {
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      console.error(`Error loading data from Local Storage for key "${key}":`, e);
+      return [];
+    }
+  };
+
+  const saveToLocalStorage = (key, data) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+      console.error(`Error saving data to Local Storage for key "${key}":`, e);
+      showCustomModal('Error', 'Failed to save data to local storage. Storage limit might be exceeded.');
+    }
+  };
+
+  // --- Data Normalization for Weekly Schedules ---
+  // Ensures weekly schedules have a consistent structure, especially for new entries or missing data.
+  function normalizeWeeklySchedules(schedules) {
+      console.log('Starting normalization of weekly schedules...');
+      if (dealers.length === 0) {
+          console.warn('Dealers data not loaded yet. Normalization might be incomplete, attempting to load.');
+          dealers = loadFromLocalStorage('dealers');
+      }
+
+      schedules.forEach(weekSchedule => {
+          if (!weekSchedule.schedule) {
+              weekSchedule.schedule = {};
+          }
+          const schedule = weekSchedule.schedule;
+
+          dealers.forEach(dealer => {
+              if (!schedule[dealer.id]) {
+                  schedule[dealer.id] = {
+                      dealerRowColor: CUSTOM_COLORS.white,
+                      supervisorRowColor: CUSTOM_COLORS.turquoise,
+                      shifts: {}
+                  };
+              } else {
+                  // Ensure existing dealer entry has default row colors if missing
+                  schedule[dealer.id].dealerRowColor = schedule[dealer.id].dealerRowColor !== undefined ? schedule[dealer.id].dealerRowColor : CUSTOM_COLORS.white;
+                  schedule[dealer.id].supervisorRowColor = schedule[dealer.id].supervisorRowColor !== undefined ? schedule[dealer.id].supervisorRowColor : CUSTOM_COLORS.turquoise;
+                  if (!schedule[dealer.id].shifts) {
+                      schedule[dealer.id].shifts = {};
+                  }
+              }
+
+              const { start } = getWeekRange(new Date(weekSchedule.startDate));
+              for (let i = 0; i < 7; i++) {
+                  const currentDay = new Date(start);
+                  currentDay.setDate(start.getDate() + i);
+                  const dayKey = currentDay.toISOString().split('T')[0];
+
+                  if (!schedule[dealer.id].shifts[dayKey]) {
+                      schedule[dealer.id].shifts[dayKey] = {};
+                  }
+
+                  // Normalize dealer shift data
+                  if (!schedule[dealer.id].shifts[dayKey].dealer) {
+                      schedule[dealer.id].shifts[dayKey].dealer = {};
+                  }
+                  const dShift = schedule[dealer.id].shifts[dayKey].dealer;
+                  dShift.shiftCode = dShift.shiftCode || ''; // Default to empty string
+                  dShift.timeIn = dShift.timeIn || '';       // Default to empty string
+                  dShift.timeOut = dShift.timeOut || '';     // Default to empty string
+                  dShift.shiftCodeColor = dShift.shiftCodeColor || CUSTOM_COLORS.white;
+                  dShift.timeInColor = dShift.timeInColor || CUSTOM_COLORS.white;
+                  dShift.timeOutColor = dShift.timeOutColor || CUSTOM_COLORS.white;
+
+                  // Normalize supervisor shift data (only if dealer has Relief Sup position)
+                  if (dealer.positions && dealer.positions.includes('Relief Sup')) {
+                      if (!schedule[dealer.id].shifts[dayKey].supervisor) {
+                          schedule[dealer.id].shifts[dayKey].supervisor = {};
+                      }
+                      const sShift = schedule[dealer.id].shifts[dayKey].supervisor;
+                      sShift.shiftCode = sShift.shiftCode || ''; // Default to empty string
+                      sShift.timeIn = sShift.timeIn || '';       // Default to empty string
+                      sShift.timeOut = sShift.timeOut || '';     // Default to empty string
+                      sShift.shiftCodeColor = sShift.shiftCodeColor || CUSTOM_COLORS.white;
+                      sShift.timeInColor = sShift.timeInColor || CUSTOM_COLORS.white;
+                      sShift.timeOutColor = sShift.timeOutColor || CUSTOM_COLORS.white;
+                  } else {
+                      // If dealer is not a supervisor, ensure no supervisor shift data exists
+                      if (schedule[dealer.id].shifts[dayKey].supervisor) {
+                          delete schedule[dealer.id].shifts[dayKey].supervisor;
+                      }
+                  }
+              }
+          });
+      });
+      console.log('Normalization complete.');
+      return schedules;
+  }
+
+
+  // --- Data Loading and Saving (using Local Storage) ---
+  // Main function to load all data from Local Storage and render the initial UI
+  async function loadAllData() {
+    // Load data from Local Storage
+    games = loadFromLocalStorage('games');
+    dealers = loadFromLocalStorage('dealers');
+    dealers.sort((a, b) => a.seniorityLevel - b.seniorityLevel); // Sort by seniority
+    tables = loadFromLocalStorage('tables');
+    
+    // Crucially, normalize weekly schedules AFTER dealers array is populated
+    weeklySchedules = normalizeWeeklySchedules(loadFromLocalStorage('weeklySchedules'));
+    weeklySchedules.sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    // Set currentWeeklyScheduleId to the latest week available
+    if (!currentWeeklyScheduleId && weeklySchedules.length > 0) {
+      currentWeeklyScheduleId = weeklySchedules[weeklySchedules.length - 1].id;
+    }
+
+    // Load daily roster for the current date
+    const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+    dailyRoster = loadFromLocalStorage(`dailyRoster_${dateString}`);
+
+    // Render initial UI
+    renderGames();
+    refreshGameSelects(); // Call refreshGameSelects after games are loaded
+    renderDealers();
+    renderPit(); // This will now display the tables.
+    renderWeeklySchedule(); // This will now render with normalized data
+    renderDailySchedule();
+    populateDailyDealerModalList(); // Populate dealer list for daily roster modal
+
+    // Set date picker value to current date
+    const scheduleDatePicker = document.getElementById('schedule-date-picker');
+    if (scheduleDatePicker) {
+        scheduleDatePicker.valueAsDate = currentDailyRosterDate;
+    } else {
+        console.error("Element with ID 'schedule-date-picker' not found.");
+    }
+
+    // Initial navigation to 'About' section after all elements are loaded
+    const aboutNavBtn = document.querySelector('.nav-btn[data-target="about"]');
+    if (aboutNavBtn) {
+        aboutNavBtn.click();
+    } else {
+        console.error("Navigation button for 'About' section not found.");
+    }
+  }
+
+  // --- Navigation ---
+  // Attach click handlers to navigation buttons to show/hide sections
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden')); // Hide all sections
+      document.getElementById(btn.dataset.target).classList.remove('hidden'); // Show the target section
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('bg-gray-700')); // Remove active style from all nav buttons
+      btn.classList.add('bg-gray-700'); // Add active style to the clicked button
+
+      // Specific rendering logic for certain sections when navigated to
+      if (btn.dataset.target === 'schedule') {
+        // Load and render daily schedule for the current date
+        const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+        dailyRoster = loadFromLocalStorage(`dailyRoster_${dateString}`);
+        renderDailySchedule(); // Rerender schedule if date hasn't changed.
+      } else if (btn.dataset.target === 'weekly-schedules') {
+        renderWeeklySchedule(); // Render weekly schedule
+      } else if (btn.dataset.target === 'pit') {
+        renderPit(); // Render pit management
+      }
+    };
+  });
+
+  // --- Games CRUD ---
+  // Renders the list of games in the 'Games Management' section
+  function renderGames() {
+    const body = document.getElementById('games-body');
+    if (body) { // Check if element exists
+      body.innerHTML = '';
+      games.forEach(g => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class='p-3 border-b border-gray-200'>${g.name}</td>
+          <td class='p-3 border-b border-gray-200 text-center'>${g.init}</td>
+          <td class='p-3 border-b border-gray-200 text-center'>
+            <button data-id='${g.id}' class='del-game text-red-600 hover:text-red-800 transition-colors'>✕</button>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+      refreshGameSelects(); // Update game dropdowns and checkboxes in other sections
+    } else {
+        console.error("Element with ID 'games-body' not found.");
+    }
+  }
+
+  // Populates game selection dropdowns (for tables) and checkboxes (for dealers)
+  function refreshGameSelects() {
+    // For New Table Modal (Game Type dropdown)
+    const newTableGameTypeSelect = document.getElementById('new-table-game-type');
+    if (newTableGameTypeSelect) {
+        newTableGameTypeSelect.innerHTML = '<option value="">Select Game</option>';
+        games.forEach(g => {
+            const o = document.createElement('option');
+            o.value = g.id;
+            o.textContent = g.name; // Display full game name
+            newTableGameTypeSelect.appendChild(o);
+        });
+    } else {
+        console.error("Element with ID 'new-table-game-type' not found.");
+    }
+
+    // For Dealer Add/Edit Modal (game checkboxes) - now uses initials
+    const dealerGamesCheckboxes = document.getElementById('dealer-games-checkboxes');
+    if (dealerGamesCheckboxes) {
+      dealerGamesCheckboxes.innerHTML = '';
+      games.forEach(g => {
+        const lbl = document.createElement('label');
+        lbl.className = 'inline-flex items-center text-gray-700';
+        lbl.innerHTML = `<input type='checkbox' value='${g.id}' class='form-checkbox dealer-game-checkbox mr-2 rounded text-blue-600'> ${g.init}`; // Use game initials
+        dealerGamesCheckboxes.appendChild(lbl);
+      });
+    } else {
+        console.error("Element with ID 'dealer-games-checkboxes' not found.");
+    }
+  }
+
+  // Handles adding a new game
+  document.getElementById('add-game').onclick = async () => {
+    const nameInput = document.getElementById('game-name');
+    const initInput = document.getElementById('game-init');
+    if (!nameInput || !initInput) {
+        console.error("Game input elements not found.");
+        return;
+    }
+    const name = nameInput.value.trim();
+    const init = initInput.value.trim().toUpperCase();
+    if (!name || !init) {
+      showCustomModal('Error', 'Game name and abbreviation cannot be empty!');
+      return;
+    }
+    // Check for duplicate init
+    if (games.some(g => g.init === init)) {
+      showCustomModal('Error', 'Game abbreviation already exists. Please use a unique abbreviation.');
+      return;
+    }
+
+    const gameId = uid(); // Generate a unique ID for the new game
+    games.push({ id: gameId, name, init }); // Add the new game to the in-memory array
+    saveToLocalStorage('games', games); // Save to Local Storage
+    nameInput.value = ''; // Clear input fields
+    initInput.value = '';
+    renderGames(); // Re-render the UI
+  };
+
+  // Handles deleting a game
+  document.addEventListener('click', async e => {
+    if (e.target.classList.contains('del-game')) {
+      const gameId = e.target.dataset.id;
+      const confirmDelete = await showCustomModal('Confirm Delete', 'Are you sure you want to delete this game? This action is irreversible.', true);
+      if (confirmDelete) {
+        games = games.filter(g => g.id !== gameId); // Remove from in-memory array
+        saveToLocalStorage('games', games); // Save to Local Storage
+        renderGames(); // Re-render the UI
+        // Also remove any tables associated with this game
+        tables = tables.filter(t => t.gameId !== gameId);
+        saveToLocalStorage('tables', tables);
+        renderPit(); // Re-render pit management as tables changed.
+        // Update dealers whose games might have been deleted
+        dealers.forEach(d => {
+            const originalGameCount = d.games.length;
+            d.games = d.games.filter(gid => games.some(g => g.id === gid));
+            if (d.games.length !== originalGameCount) {
+                // If games were removed from a dealer, save updated dealer list
+                saveToLocalStorage('dealers', dealers);
+            }
+        });
+        renderDealers(); // Re-render dealers
+      }
+    }
+  });
+
+  // --- Dealers CRUD ---
+  let currentDealerBeingEdited = null; // Stores the dealer object being edited
+
+  // Renders the list of dealers in the 'Dealers Management' section
+  function renderDealers() {
+    const body = document.getElementById('dealers-body');
+    if (body) {
+      body.innerHTML = '';
+      dealers.forEach(d => {
+        const gameInits = d.games.map(id => games.find(g => g.id === id)?.init || '').join('·'); // Get game abbreviations
+        const positionsText = d.positions ? d.positions.join(', ') : ''; // Format positions array
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class='p-3 border-b border-gray-200'>${d.lastName}, ${d.firstName}</td>
+          <td class='p-3 border-b border-gray-200 text-center'>${d.employeeNumber}</td>
+          <td class='p-3 border-b border-gray-200 text-center'>${d.seniorityLevel}</td>
+          <td class='p-3 border-b border-gray-200 text-center'>${positionsText}</td>
+          <td class='p-3 border-b border-gray-200 text-center'>${gameInits}</td>
+          <td class='p-3 border-b border-gray-200 text-center'>
+            <button data-id='${d.id}' class='edit-dealer text-blue-600 hover:text-blue-800 transition-colors mr-2'>Edit</button>
+            <button data-id='${d.id}' class='del-dealer text-red-600 hover:text-red-800 transition-colors'>✕</button>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    } else {
+        console.error("Element with ID 'dealers-body' not found.");
+    }
+  }
+
+  // Opens the Add/Edit Dealer modal in 'Add' mode
+  document.getElementById('open-add-dealer-modal').onclick = () => {
+    currentDealerBeingEdited = null; // Clear any previously edited dealer
+    const modalTitle = document.getElementById('dealer-modal-title');
+    const firstNameInput = document.getElementById('dealer-first-name');
+    const lastNameInput = document.getElementById('dealer-last-name');
+    const employeeNumberInput = document.getElementById('dealer-employee-number');
+    const seniorityLevelInput = document.getElementById('dealer-seniority-level');
+    const dealerPositions = document.querySelectorAll('.dealer-position');
+    const dealerGameCheckboxes = document.querySelectorAll('.dealer-game-checkbox');
+    const dealerModal = document.getElementById('dealer-modal');
+
+    if (!modalTitle || !firstNameInput || !lastNameInput || !employeeNumberInput || !seniorityLevelInput || !dealerModal) {
+        console.error("One or more dealer modal elements not found.");
+        return;
+    }
+
+    modalTitle.textContent = 'Add New Dealer';
+    // Clear all input fields and checkboxes
+    firstNameInput.value = '';
+    lastNameInput.value = '';
+    employeeNumberInput.value = '';
+    seniorityLevelInput.value = '';
+    dealerPositions.forEach(cb => cb.checked = false);
+    dealerGameCheckboxes.forEach(cb => cb.checked = false);
+    dealerModal.classList.remove('hidden'); // Show the modal
+    refreshGameSelects(); // Re-populate game checkboxes in case games have changed
+  };
+
+  // Closes the Add/Edit Dealer modal
+  document.getElementById('cancel-dealer-modal').onclick = () => {
+    const dealerModal = document.getElementById('dealer-modal');
+    if (dealerModal) {
+      dealerModal.classList.add('hidden');
+    } else {
+        console.error("Element with ID 'dealer-modal' not found.");
+    }
+  };
+
+  // Handles saving a new or edited dealer to Local Storage
+  document.getElementById('save-dealer').onclick = async () => {
+    const firstNameInput = document.getElementById('dealer-first-name');
+    const lastNameInput = document.getElementById('dealer-last-name');
+    const employeeNumberInput = document.getElementById('dealer-employee-number');
+    const seniorityLevelInput = document.getElementById('dealer-seniority-level');
+
+    if (!firstNameInput || !lastNameInput || !employeeNumberInput || !seniorityLevelInput) {
+        console.error("One or more dealer input elements not found.");
+        return;
+    }
+
+    const firstName = firstNameInput.value.trim();
+    const lastName = lastNameInput.value.trim();
+    const employeeNumber = employeeNumberInput.value.trim();
+    const seniorityLevel = parseInt(seniorityLevelInput.value);
+    const selectedPositions = [...document.querySelectorAll('.dealer-position:checked')].map(cb => cb.value);
+    const selectedGames = [...document.querySelectorAll('.dealer-game-checkbox:checked')].map(cb => cb.value);
+
+    // Input validation
+    if (!firstName || !lastName || !employeeNumber || isNaN(seniorityLevel) || selectedPositions.length === 0) {
+      showCustomModal('Error', 'Please fill all fields: First Name, Last Name, Employee Number, Seniority Level, and select at least one Position.');
+      return;
+    }
+
+    // Check for uniqueness of employeeNumber and seniorityLevel
+    const isEditing = currentDealerBeingEdited !== null;
+    const existingEmployeeNumber = dealers.find(d => d.employeeNumber === employeeNumber && d.id !== (isEditing ? currentDealerBeingEdited.id : null));
+    const existingSeniorityLevel = dealers.find(d => d.seniorityLevel === seniorityLevel && d.id !== (isEditing ? currentDealerBeingEdited.id : null));
+
+    if (existingEmployeeNumber) {
+      showCustomModal('Error', 'Employee Number already exists. Please enter a unique number.');
+      return;
+    }
+    if (existingSeniorityLevel) {
+      showCustomModal('Error', 'Seniority Level already exists. Please enter a unique level.');
+      return;
+    }
+
+    const dealerData = {
+      firstName, lastName, employeeNumber, seniorityLevel,
+      positions: selectedPositions, // Array of selected positions
+      games: selectedGames // Array of game IDs
+    };
+
+    if (isEditing) {
+      // Update existing dealer
+      const index = dealers.findIndex(d => d.id === currentDealerBeingEdited.id);
+      if (index !== -1) {
+        dealers[index] = { ...dealers[index], ...dealerData };
+      }
+    } else {
+      // Add new dealer
+      const dealerId = uid();
+      dealers.push({ id: dealerId, ...dealerData });
+    }
+    dealers.sort((a, b) => a.seniorityLevel - b.seniorityLevel); // Sort by seniority
+    saveToLocalStorage('dealers', dealers); // Save to Local Storage
+    document.getElementById('dealer-modal').classList.add('hidden'); // Hide the modal
+    renderDealers(); // Re-render the UI
+    populateDailyDealerModalList(); // Update dealer list in daily roster modal
+    renderWeeklySchedule(); // Re-render weekly schedule
+  };
+
+  // Event listener for dealer actions (edit/delete)
+  document.addEventListener('click', async e => {
+    if (e.target.classList.contains('edit-dealer')) {
+      // Handle Edit Dealer
+      const dealerId = e.target.dataset.id;
+      currentDealerBeingEdited = dealers.find(d => d.id === dealerId);
+      if (currentDealerBeingEdited) {
+        const modalTitle = document.getElementById('dealer-modal-title');
+        const firstNameInput = document.getElementById('dealer-first-name');
+        const lastNameInput = document.getElementById('dealer-last-name');
+        const employeeNumberInput = document.getElementById('dealer-employee-number');
+        const seniorityLevelInput = document.getElementById('dealer-seniority-level');
+        const dealerPositions = document.querySelectorAll('.dealer-position');
+        const dealerGameCheckboxes = document.querySelectorAll('.dealer-game-checkbox');
+        const dealerModal = document.getElementById('dealer-modal');
+
+        if (!modalTitle || !firstNameInput || !lastNameInput || !employeeNumberInput || !seniorityLevelInput || !dealerModal) {
+            console.error("One or more dealer modal elements not found for editing.");
+            return;
+        }
+
+        modalTitle.textContent = 'Edit Dealer';
+        // Populate modal fields with existing dealer data
+        firstNameInput.value = currentDealerBeingEdited.firstName;
+        lastNameInput.value = currentDealerBeingEdited.lastName;
+        employeeNumberInput.value = currentDealerBeingEdited.employeeNumber;
+        seniorityLevelInput.value = currentDealerBeingEdited.seniorityLevel;
+
+        // Set checkboxes for positions
+        dealerPositions.forEach(cb => {
+          cb.checked = currentDealerBeingEdited.positions.includes(cb.value);
+        });
+        // Set checkboxes for games
+        dealerGameCheckboxes.forEach(cb => {
+          cb.checked = currentDealerBeingEdited.games.includes(cb.value);
+        });
+
+        dealerModal.classList.remove('hidden'); // Show the modal
+        refreshGameSelects(); // Re-populate game checkboxes in case games have changed
+      }
+    } else if (e.target.classList.contains('del-dealer')) {
+      // Handle Delete Dealer
+      const dealerId = e.target.dataset.id;
+      const confirmDelete = await showCustomModal('Confirm Delete', 'Are you sure you want to delete this dealer? All related shifts will also be removed.', true);
+      if (confirmDelete) {
+        dealers = dealers.filter(d => d.id !== dealerId); // Remove from in-memory array
+        saveToLocalStorage('dealers', dealers); // Save to Local Storage
+
+        // Manually clean up associated data in weekly schedules and daily rosters
+        weeklySchedules.forEach(ws => {
+          if (ws.schedule[dealerId]) {
+            delete ws.schedule[dealerId];
+          }
+        });
+        saveToLocalStorage('weeklySchedules', weeklySchedules);
+
+        // Remove daily roster entries for this dealer across all dates
+        const allRosterKeys = Object.keys(localStorage).filter(key => key.startsWith('dailyRoster_'));
+        allRosterKeys.forEach(key => {
+            let rosterForDate = JSON.parse(localStorage.getItem(key));
+            rosterForDate = rosterForDate.filter(r => r.dealerId !== dealerId);
+            localStorage.setItem(key, JSON.stringify(rosterForDate));
+        });
+        // Reload daily roster for the current displayed date after deletion
+        const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+        dailyRoster = loadFromLocalStorage(`dailyRoster_${dateString}`);
+
+        renderDealers(); // Re-render the UI
+        renderWeeklySchedule(); // Re-render weekly schedule
+        renderDailySchedule(); // Re-render daily schedule
+        populateDailyDealerModalList(); // Update dealer list in daily roster modal
+      }
+    }
+  });
+
+
+  // --- Tables CRUD (Integrated into Pit Management) ---
+
+  // Renders the pit management cards, now including table listings
+  function renderPit() {
+    const wrapper = document.getElementById('pit-wrapper');
+    if (wrapper) {
+      wrapper.innerHTML = '';
+      [1, 2, 3, 4].forEach(p => { // Iterate through pits (assuming 4 pits)
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-lg shadow-md flex flex-col overflow-hidden';
+        card.innerHTML = `<div class='bg-gray-200 px-3 py-2 font-semibold text-lg'>Pit ${p}</div>`;
+        const list = document.createElement('div');
+        list.className = 'flex-1 divide-y divide-gray-200';
+        tables.filter(t => t.pit === p).sort((a, b) => a.name.localeCompare(b.name)).forEach(t => { // Filter tables by pit
+          const row = document.createElement('div');
+          row.className = 'flex justify-between items-center px-3 py-2 text-sm';
+          const game = games.find(g => g.id === t.gameId);
+          row.innerHTML = `
+            <span>${t.name} (${t.init} / ${game ? game.name : '?'})</span>
+            <label class='inline-flex items-center gap-1 text-xs'>
+              <input type='checkbox' class='toggle-table-status form-checkbox rounded text-blue-600' data-id='${t.id}' ${t.open ? 'checked' : ''}>
+              <span>${t.open ? 'Open' : 'Closed'}</span>
+            </label>
+            <button data-id='${t.id}' class='del-table text-red-600 hover:text-red-800 transition-colors text-xl leading-none'>&times;</button>
+          `;
+          list.appendChild(row);
+        });
+        card.appendChild(list);
+        wrapper.appendChild(card);
+      });
+    } else {
+        console.error("Element with ID 'pit-wrapper' not found.");
+    }
+  }
+
+  // Opens the Add New Table modal
+  document.getElementById('open-add-table-modal').onclick = () => {
+    const newTableModal = document.getElementById('add-table-modal');
+    if (!newTableModal) {
+        console.error("Element with ID 'add-table-modal' not found.");
+        return;
+    }
+    // Clear inputs
+    document.getElementById('new-table-name').value = '';
+    document.getElementById('new-table-label').value = '';
+    document.getElementById('new-table-game-type').value = '';
+    document.getElementById('new-table-location').value = '1';
+    newTableModal.classList.remove('hidden');
+    refreshGameSelects(); // Ensure game types are up-to-date
+  };
+
+  // Closes the Add New Table modal
+  document.getElementById('cancel-add-table-modal').onclick = () => {
+    const newTableModal = document.getElementById('add-table-modal');
+    if (newTableModal) {
+      newTableModal.classList.add('hidden');
+    } else {
+        console.error("Element with ID 'add-table-modal' not found.");
+    }
+  };
+
+  // Handles saving a new table from the modal
+  document.getElementById('save-new-table').onclick = async () => {
+    const nameInput = document.getElementById('new-table-name');
+    const labelInput = document.getElementById('new-table-label');
+    const gameTypeSelect = document.getElementById('new-table-game-type');
+    const locationSelect = document.getElementById('new-table-location');
+
+    if (!nameInput || !labelInput || !gameTypeSelect || !locationSelect) {
+        console.error("One or more new table input elements not found.");
+        return;
+    }
+
+    const name = nameInput.value.trim();
+    const init = labelInput.value.trim().toUpperCase(); // Table Label is now 'init'
+    const gameId = gameTypeSelect.value;
+    const pit = parseInt(locationSelect.value);
+
+    if (!name || !init || !gameId || isNaN(pit)) {
+      showCustomModal('Error', 'Please fill all fields: Table Name, Table Label, Game Type, and Location!');
+      return;
+    }
+
+    // Check for duplicate table label (init)
+    if (tables.some(t => t.init === init)) {
+        showCustomModal('Error', 'Table Label already exists. Please enter a unique label.');
+        return;
+    }
+
+    const tableId = uid();
+    tables.push({ id: tableId, name, init, gameId, pit, open: true });
+    saveToLocalStorage('tables', tables);
+    document.getElementById('add-table-modal').classList.add('hidden');
+    renderPit(); // Re-render the pit view to show the new table
+  };
+
+  // Handles deleting a table from Pit Management
+  document.addEventListener('click', async e => {
+    if (e.target.classList.contains('del-table')) {
+      const tableId = e.target.dataset.id;
+      const confirmDelete = await showCustomModal('Confirm Delete', 'Are you sure you want to delete this table? This action is irreversible and may affect existing schedules.', true);
+      if (confirmDelete) {
+        tables = tables.filter(t => t.id !== tableId);
+        saveToLocalStorage('tables', tables);
+        renderPit(); // Re-render to reflect the deletion
+        // Clean up any assignments in daily roster that used this table
+        const allRosterKeys = Object.keys(localStorage).filter(key => key.startsWith('dailyRoster_'));
+        allRosterKeys.forEach(key => {
+            let rosterForDate = JSON.parse(localStorage.getItem(key));
+            let changed = false;
+            rosterForDate.forEach(r => {
+                if (r.assignments) {
+                    for (const slotIdx in r.assignments) {
+                        // Find the table's init by its ID first, before deleting the table from the `tables` array
+                        const deletedTableInit = tables.find(t => t.id === tableId)?.init;
+                        if (r.assignments[slotIdx] === deletedTableInit) {
+                            delete r.assignments[slotIdx];
+                            changed = true;
+                        }
+                    }
+                }
+            });
+            if (changed) {
+                localStorage.setItem(key, JSON.stringify(rosterForDate));
+            }
+        });
+        renderDailySchedule(); // Re-render daily schedule to remove old assignments
+      }
+    }
+  });
+
+
+  // Handles changing the open/closed status of a table
+  document.addEventListener('change', async e => {
+    if (e.target.classList.contains('toggle-table-status')) {
+      const tableId = e.target.dataset.id;
+      const t = tables.find(t => t.id === tableId);
+      if (t) {
+        t.open = e.target.checked; // Update in-memory object
+        saveToLocalStorage('tables', tables); // Save to Local Storage
+        renderPit(); // Re-render the UI
+      }
+    }
+  });
+
+
+  // --- Weekly Schedules ---
+  // Start WEEK_DAYS from Sunday (index 0)
+  const WEEK_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const SHIFT_CODES = ['Regular', 'Vacation Pay', 'Vac Leave', 'Medical', 'Pregparents', 'Training'];
+  const CUSTOM_COLORS = {
+    yellow: '#FFFACD', // Light Yellow
+    orange: '#FFDAB9', // Light Orange
+    green: '#98FB98', // Pale Green
+    red: '#FFC0CB',   // Pink (light red)
+    white: '#FFFFFF',
+    purple: '#E6E6FA', // Lavender (light purple)
+    blue: '#ADD8E6',   // Light Blue
+    gray: '#D3D3D3',   // Light Gray
+    black: '#A9A9A9',  // Dark Gray for text on black background - used this for text on black background before, now for background
+    turquoise: '#AFEEEE' // Pale Turquoise
+  };
+  const COLOR_OPTIONS = [
+    { name: 'Yellow', value: CUSTOM_COLORS.yellow },
+    { name: 'Orange', value: CUSTOM_COLORS.orange },
+    { name: 'Green', value: CUSTOM_COLORS.green },
+    { name: 'Red', value: CUSTOM_COLORS.red },
+    { name: 'White', value: CUSTOM_COLORS.white },
+    { name: 'Purple', value: CUSTOM_COLORS.purple },
+    { name: 'Blue', value: CUSTOM_COLORS.blue },
+    { name: 'Gray', value: CUSTOM_COLORS.gray },
+    { name: 'Black', value: CUSTOM_COLORS.black },
+    { name: 'Turquoise', value: CUSTOM_COLORS.turquoise }
+  ];
+
+
+  let currentWeeklyScheduleStartDate = new Date();
+
+  // Sets the initial weekly schedule date to the most recent Sunday
+  function setInitialWeeklyScheduleDate() {
+    const today = new Date();
+    currentWeeklyScheduleStartDate.setDate(today.getDate() - today.getDay()); // Set to Sunday
+    currentWeeklyScheduleStartDate.setHours(0, 0, 0, 0); // Reset time to start of day
+  }
+  setInitialWeeklyScheduleDate(); // Call immediately on load
+
+  // Calculates the start and end dates for a given week
+  function getWeekRange(date) {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0); // Ensure no time component affects the date
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6); // Add 6 days to get to Saturday
+    return { start, end };
+  }
+
+  // Generates a unique ID for a week based on its start date
+  function getWeekId(date) {
+    const { start } = getWeekRange(date);
+    return start.toISOString().split('T')[0]; // Format as<y_bin_358>-MM-DD
+  }
+
+  // Renders the header row for the weekly schedule table (Weekdays with dates)
+  function renderWeeklyScheduleHeader() {
+    const head = document.getElementById('weekly-sched-head');
+    const currentWeekDisplay = document.getElementById('current-week-display');
+
+    if (!head || !currentWeekDisplay) {
+        console.error("Weekly schedule header elements not found.");
+        return;
+    }
+
+    // Remove existing day headers (columns after 'Position')
+    Array.from(head.children).forEach((child, index) => {
+      if (index >= 2) { // Keep 'Dealer Name' and 'Position' columns
+        child.remove();
+      }
+    });
+
+    const { start } = getWeekRange(currentWeeklyScheduleStartDate);
+    const endDateForDisplay = new Date(start);
+    endDateForDisplay.setDate(start.getDate() + 6);
+
+    currentWeekDisplay.textContent =
+      `Week: ${start.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })} - ` +
+      `${endDateForDisplay.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}`;
+
+    const iterationStart = new Date(start);
+
+    for (let i = 0; i < 7; i++) {
+      const currentDay = new Date(iterationStart);
+      currentDay.setDate(iterationStart.getDate() + i);
+      const th = document.createElement('th');
+      th.className = 'p-2 border-r border-gray-200 text-center min-w-[200px]';
+      th.textContent = `${WEEK_DAYS[currentDay.getDay()]}\n${currentDay.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`;
+      head.appendChild(th);
+    }
+  }
+
+  // Renders the main weekly schedule table body
+  function renderWeeklySchedule() {
+    renderWeeklyScheduleHeader(); // Always update header when rendering schedule
+    const body = document.getElementById('weekly-sched-body');
+    if (!body) {
+        console.error("Element with ID 'weekly-sched-body' not found.");
+        return;
+    }
+    body.innerHTML = ''; // Clear existing rows
+
+    const currentWeekId = getWeekId(currentWeeklyScheduleStartDate);
+    let selectedWeeklySchedule = weeklySchedules.find(ws => ws.id === currentWeekId);
+
+    // If the current week's schedule doesn't exist, create a temporary empty one for rendering
+    if (!selectedWeeklySchedule) {
+        selectedWeeklySchedule = {
+            id: currentWeekId,
+            startDate: currentWeekId,
+            schedule: {} // Initialize with an empty schedule object
+        };
+    }
+    
+    const scheduleData = selectedWeeklySchedule.schedule || {}; // Ensure scheduleData is always an object
+
+    dealers.forEach(dealer => {
+      // Get dealer's current schedule data for the week, providing robust defaults
+      const dealerScheduleEntry = scheduleData[dealer.id] || {
+          dealerRowColor: CUSTOM_COLORS.white,
+          supervisorRowColor: CUSTOM_COLORS.turquoise,
+          shifts: {}
+      };
+
+      // --- Render Dealer row ---
+      const trDealer = document.createElement('tr');
+      trDealer.dataset.dealerId = dealer.id;
+      trDealer.dataset.positionType = 'dealer';
+      trDealer.style.backgroundColor = dealerScheduleEntry.dealerRowColor;
+
+      trDealer.innerHTML = `
+        <td class='p-3 border-r border-b border-gray-200 font-semibold text-left'>
+          ${dealer.lastName}, ${dealer.firstName}
+          <div class="color-picker-wrapper" style="background-color:${dealerScheduleEntry.dealerRowColor};" title="Select Row Color">
+            <select class="color-select" data-dealer-id="${dealer.id}" data-role="dealer" data-field="rowColor">
+              ${COLOR_OPTIONS.map(color => `<option value="${color.value}" ${ dealerScheduleEntry.dealerRowColor === color.value ? 'selected' : ''} style="background-color:${color.value}; color:${color.value === CUSTOM_COLORS.black ? 'white' : 'black'};">${color.name}</option>`).join('')}
+            </select>
+          </div>
+        </td>
+        <td class='p-3 border-r border-b border-gray-200 text-center'>
+          ${dealer.positions.filter(p => p.startsWith('Dealer')).join(', ') || '-'}
+        </td>
+      `;
+      body.appendChild(trDealer);
+
+      const { start } = getWeekRange(currentWeeklyScheduleStartDate);
+      for (let i = 0; i < 7; i++) {
+        const currentDay = new Date(start);
+        currentDay.setDate(start.getDate() + i);
+        const dayKey = currentDay.toISOString().split('T')[0];
+        // Get the specific shift data for this day and dealer, with defaults
+        const dealerShift = dealerScheduleEntry.shifts[dayKey]?.dealer || {
+            shiftCode: '', timeIn: '', timeOut: '',
+            shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white
+        };
+
+        const td = document.createElement('td');
+        td.className = 'p-2 border-r border-b border-gray-200 text-center align-top';
+        td.innerHTML = `
+          <div class="weekly-shift-input-wrapper flex flex-col items-stretch gap-1">
+            <div class="flex items-center">
+              <select class='weekly-shift-code border rounded-md w-full text-left' data-dealer-id='${dealer.id}' data-day-key='${dayKey}' data-position-type='dealer' data-field="shiftCode" style="background-color:${dealerShift.shiftCodeColor};">
+                <option value=''>Select Code</option>
+                ${SHIFT_CODES.map(code => `<option value='${code}' ${dealerShift.shiftCode === code ? 'selected' : ''}>${code}</option>`).join('')}
+              </select>
+              <div class="color-picker-wrapper" style="background-color:${dealerShift.shiftCodeColor};" title="Select Cell Color">
+                <select class="color-select" data-dealer-id="${dealer.id}" data-day-key="${dayKey}" data-position-type="dealer" data-field="shiftCodeColor">
+                  ${COLOR_OPTIONS.map(color => `<option value="${color.value}" ${ dealerShift.shiftCodeColor === color.value ? 'selected' : ''} style="background-color:${color.value}; color:${color.value === CUSTOM_COLORS.black ? 'white' : 'black'};">${color.name}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="flex items-center">
+              <input type='time' class='weekly-time-in border rounded-md w-full text-center' value='${dealerShift.timeIn || ''}' data-dealer-id='${dealer.id}' data-day-key='${dayKey}' data-position-type='dealer' data-field="timeIn" style="background-color:${dealerShift.timeInColor};">
+              <div class="color-picker-wrapper" style="background-color:${dealerShift.timeInColor};" title="Select Cell Color">
+                <select class="color-select" data-dealer-id="${dealer.id}" data-day-key="${dayKey}" data-position-type="dealer" data-field="timeInColor">
+                  ${COLOR_OPTIONS.map(color => `<option value="${color.value}" ${ dealerShift.timeInColor === color.value ? 'selected' : ''} style="background-color:${color.value}; color:${color.value === CUSTOM_COLORS.black ? 'white' : 'black'};">${color.name}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="flex items-center">
+              <input type='time' class='weekly-time-out border rounded-md w-full text-center' value='${dealerShift.timeOut || ''}' data-dealer-id='${dealer.id}' data-day-key='${dayKey}' data-position-type='dealer' data-field="timeOut" style="background-color:${dealerShift.timeOutColor};">
+              <div class="color-picker-wrapper" style="background-color:${dealerShift.timeOutColor};" title="Select Cell Color">
+                <select class="color-select" data-dealer-id="${dealer.id}" data-day-key="${dayKey}" data-position-type="dealer" data-field="timeOutColor">
+                  ${COLOR_OPTIONS.map(color => `<option value="${color.value}" ${ dealerShift.timeOutColor === color.value ? 'selected' : ''} style="background-color:${color.value}; color:${color.value === CUSTOM_COLORS.black ? 'white' : 'black'};">${color.name}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+        `;
+        trDealer.appendChild(td);
+      }
+
+      // --- Render Supervisor row if dual-rate ---
+      if (dealer.positions && dealer.positions.includes('Relief Sup')) {
+        const trSup = document.createElement('tr');
+        trSup.dataset.dealerId = dealer.id;
+        trSup.dataset.positionType = 'supervisor';
+        trSup.style.backgroundColor = dealerScheduleEntry.supervisorRowColor;
+        trSup.innerHTML = `
+          <td class='p-3 border-r border-b border-gray-200 text-left'>
+            ${dealer.lastName}, ${dealer.firstName} &mdash; Supervisor Shift
+            <div class="color-picker-wrapper" style="background-color:${dealerScheduleEntry.supervisorRowColor};" title="Select Row Color">
+              <select class="color-select" data-dealer-id="${dealer.id}" data-role="supervisor" data-field="rowColor">
+                ${COLOR_OPTIONS.map(color => `<option value="${color.value}" ${ dealerScheduleEntry.supervisorRowColor === color.value ? 'selected' : ''} style="background-color:${color.value}; color:${color.value === CUSTOM_COLORS.black ? 'white' : 'black'};">${color.name}</option>`).join('')}
+            </select>
+          </div>
+        </td>
+          <td class='p-3 border-r border-b border-gray-200 text-center'>
+            Relief Sup
+          </td>
+        `;
+        body.appendChild(trSup);
+
+        const { start: supStart } = getWeekRange(currentWeeklyScheduleStartDate);
+        for (let i = 0; i < 7; i++) {
+          const currentDay = new Date(supStart);
+          currentDay.setDate(supStart.getDate() + i);
+          const dayKey = currentDay.toISOString().split('T')[0];
+          // Get the specific shift data for this day and supervisor, with defaults
+          const supShift = dealerScheduleEntry.shifts[dayKey]?.supervisor || {
+            shiftCode: '', timeIn: '', timeOut: '',
+            shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white
+          };
+
+          const td = document.createElement('td');
+          td.className = 'p-2 border-r border-b border-gray-200 text-center align-top';
+          td.innerHTML = `
+            <div class="weekly-shift-input-wrapper flex flex-col items-stretch gap-1">
+              <div class="flex items-center">
+                <select class='weekly-shift-code border rounded-md w-full text-left' data-dealer-id='${dealer.id}' data-day-key='${dayKey}' data-position-type='supervisor' data-field="shiftCode" style="background-color:${supShift.shiftCodeColor};">
+                  <option value=''>Select Code</option>
+                  ${SHIFT_CODES.map(code => `<option value='${code}' ${supShift.shiftCode === code ? 'selected' : ''}>${code}</option>`).join('')}
+                </select>
+                <div class="color-picker-wrapper" style="background-color:${supShift.shiftCodeColor};" title="Select Cell Color">
+                  <select class="color-select" data-dealer-id="${dealer.id}" data-day-key="${dayKey}" data-position-type="supervisor" data-field="shiftCodeColor">
+                    ${COLOR_OPTIONS.map(color => `<option value="${color.value}" ${ supShift.shiftCodeColor === color.value ? 'selected' : ''} style="background-color:${color.value}; color:${color.value === CUSTOM_COLORS.black ? 'white' : 'black'};">${color.name}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <input type='time' class='weekly-time-in border rounded-md w-full text-center' value='${supShift.timeIn || ''}' data-dealer-id='${dealer.id}' data-day-key='${dayKey}' data-position-type='supervisor' data-field="timeIn" style="background-color:${supShift.timeInColor};">
+                <div class="color-picker-wrapper" style="background-color:${supShift.timeInColor};" title="Select Cell Color">
+                  <select class="color-select" data-dealer-id="${dealer.id}" data-day-key="${dayKey}" data-position-type="supervisor" data-field="timeInColor">
+                    ${COLOR_OPTIONS.map(color => `<option value="${color.value}" ${ supShift.timeInColor === color.value ? 'selected' : ''} style="background-color:${color.value}; color:${color.value === CUSTOM_COLORS.black ? 'white' : 'black'};">${color.name}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <input type='time' class='weekly-time-out border rounded-md w-full text-center' value='${supShift.timeOut || ''}' data-dealer-id='${dealer.id}' data-day-key='${dayKey}' data-position-type='supervisor' data-field="timeOut" style="background-color:${supShift.timeOutColor};">
+                <div class="color-picker-wrapper" style="background-color:${supShift.timeOutColor};" title="Select Cell Color">
+                  <select class="color-select" data-dealer-id="${dealer.id}" data-day-key="${dayKey}" data-position-type="supervisor" data-field="timeOutColor">
+                    ${COLOR_OPTIONS.map(color => `<option value="${color.value}" ${ supShift.timeOutColor === color.value ? 'selected' : ''} style="background-color:${color.value}; color:${color.value === CUSTOM_COLORS.black ? 'white' : 'black'};">${color.name}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+            </div>
+          `;
+          trSup.appendChild(td);
+        }
+      }
+    });
+  }
+
+  // Event listener for changes within the weekly schedule table (shift codes, times, colors)
+  document.addEventListener('change', async e => {
+    // Handle row color changes
+    if (e.target.classList.contains('color-select') && e.target.dataset.field === 'rowColor') {
+      const dealerId = e.target.dataset.dealerId;
+      const role = e.target.dataset.role; // 'dealer' or 'supervisor'
+      const newColor = e.target.value;
+      const currentWeekId = getWeekId(currentWeeklyScheduleStartDate);
+      let selectedWeeklySchedule = weeklySchedules.find(ws => ws.id === currentWeekId);
+
+      // Create new week schedule if it doesn't exist
+      if (!selectedWeeklySchedule) {
+        selectedWeeklySchedule = { id: currentWeekId, startDate: currentWeekId, schedule: {} };
+        weeklySchedules.push(selectedWeeklySchedule);
+      }
+
+      let currentSchedule = selectedWeeklySchedule.schedule;
+      // Ensure dealer entry exists and is normalized before setting colors
+      if (!currentSchedule[dealerId]) {
+        currentSchedule[dealerId] = { dealerRowColor: CUSTOM_COLORS.white, supervisorRowColor: CUSTOM_COLORS.turquoise, shifts: {} };
+      }
+      if (role === 'dealer') {
+        currentSchedule[dealerId].dealerRowColor = newColor;
+      } else if (role === 'supervisor') {
+        currentSchedule[dealerId].supervisorRowColor = newColor;
+      }
+
+      saveToLocalStorage('weeklySchedules', weeklySchedules);
+      renderWeeklySchedule(); // Re-render to reflect color change immediately
+    }
+    // Handle cell-specific changes (shiftCode, timeIn, timeOut, and their colors)
+    else if (e.target.classList.contains('weekly-shift-code') ||
+        e.target.classList.contains('weekly-time-in') ||
+        e.target.classList.contains('weekly-time-out') ||
+        (e.target.classList.contains('color-select') && (e.target.dataset.field === 'shiftCodeColor' || e.target.dataset.field === 'timeInColor' || e.target.dataset.field === 'timeOutColor'))
+    ) {
+      const dealerId = e.target.dataset.dealerId;
+      const dayKey = e.target.dataset.dayKey;
+      const positionType = e.target.dataset.positionType; // 'dealer' or 'supervisor'
+      const field = e.target.dataset.field; // e.g., 'shiftCode', 'timeInColor'
+
+      const currentWeekId = getWeekId(currentWeeklyScheduleStartDate);
+      let selectedWeeklySchedule = weeklySchedules.find(ws => ws.id === currentWeekId);
+
+      // Create new week schedule if it doesn't exist
+      if (!selectedWeeklySchedule) {
+        selectedWeeklySchedule = { id: currentWeekId, startDate: currentWeekId, schedule: {} };
+        weeklySchedules.push(selectedWeeklySchedule);
+      }
+
+      let currentSchedule = selectedWeeklySchedule.schedule;
+      // Ensure the dealer entry and day shifts are normalized before updating
+      if (!currentSchedule[dealerId]) {
+        currentSchedule[dealerId] = { dealerRowColor: CUSTOM_COLORS.white, supervisorRowColor: CUSTOM_COLORS.turquoise, shifts: {} };
+      }
+      if (!currentSchedule[dealerId].shifts[dayKey]) {
+        currentSchedule[dealerId].shifts[dayKey] = {
+          dealer: { shiftCode: '', timeIn: '', timeOut: '', shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white },
+          supervisor: { shiftCode: '', timeIn: '', timeOut: '', shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white }
+        };
+      }
+
+      const shiftData = currentSchedule[dealerId].shifts[dayKey][positionType];
+
+      if (field.endsWith('Color')) {
+        shiftData[field] = e.target.value;
+        // Also update the background of the associated input/select immediately
+        const associatedElement = e.target.closest('.flex').querySelector(`[data-field="${field.replace('Color', '')}"]`);
+        if (associatedElement) {
+          associatedElement.style.backgroundColor = e.target.value;
+        }
+      } else {
+        shiftData[field] = e.target.value;
+      }
+
+      saveToLocalStorage('weeklySchedules', weeklySchedules); // Save the updated weekly schedules
+    }
+  });
+
+
+  // Navigates to the previous week
+  document.getElementById('prev-week').onclick = () => {
+    currentWeeklyScheduleStartDate.setDate(currentWeeklyScheduleStartDate.getDate() - 7);
+    renderWeeklySchedule();
+  };
+  // Navigates to the next week
+  document.getElementById('next-week').onclick = () => {
+    currentWeeklyScheduleStartDate.setDate(currentWeeklyScheduleStartDate.getDate() + 7);
+    renderWeeklySchedule();
+  };
+
+  // Creates a new empty weekly schedule for the next week
+  document.getElementById('new-week').onclick = async () => {
+    const nextWeekDate = new Date(currentWeeklyScheduleStartDate);
+    nextWeekDate.setDate(nextWeekDate.getDate() + 7); // Calculate next week's start date
+    const newWeekId = getWeekId(nextWeekDate);
+
+    const confirmCreate = await showCustomModal('Confirm New Week', `Are you sure you want to create the schedule for week ${newWeekId}?`, true);
+    if (!confirmCreate) return;
+
+    const existingSchedule = weeklySchedules.find(ws => ws.id === newWeekId);
+    if (existingSchedule) {
+      showCustomModal('Error', 'Schedule for this week already exists.');
+      return;
+    }
+
+    const newScheduleData = {};
+    dealers.forEach(d => {
+      newScheduleData[d.id] = {
+        dealerRowColor: CUSTOM_COLORS.white,
+        supervisorRowColor: CUSTOM_COLORS.turquoise,
+        shifts: {}
+      };
+      const { start } = getWeekRange(nextWeekDate);
+      for (let i = 0; i < 7; i++) {
+        const currentDay = new Date(start);
+        currentDay.setDate(start.getDate() + i);
+        const dayKey = currentDay.toISOString().split('T')[0];
+        newScheduleData[d.id].shifts[dayKey] = {
+          dealer: { shiftCode: '', timeIn: '', timeOut: '', shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white },
+          supervisor: { shiftCode: '', timeIn: '', timeOut: '', shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white }
+        };
+      }
+    });
+
+    weeklySchedules.push({ id: newWeekId, startDate: newWeekId, schedule: newScheduleData });
+    saveToLocalStorage('weeklySchedules', weeklySchedules);
+    currentWeeklyScheduleStartDate = nextWeekDate; // Navigate to the newly created week
+    showCustomModal('Success', `Schedule for week ${newWeekId} successfully created.`);
+    renderWeeklySchedule();
+  };
+
+  // Clones the current week's schedule to the next week
+  document.getElementById('clone-to-next-week').onclick = async () => {
+    // 1. Get current week's data
+    const currentWeekId = getWeekId(currentWeeklyScheduleStartDate);
+    const currentScheduleObject = weeklySchedules.find(ws => ws.id === currentWeekId);
+
+    if (!currentScheduleObject) {
+        showCustomModal('Error', 'There is no data for the current week to clone.');
+        return;
+    }
+
+    // 2. Calculate next week's details
+    const nextWeekDate = new Date(currentWeeklyScheduleStartDate);
+    nextWeekDate.setDate(nextWeekDate.getDate() + 7);
+    const nextWeekId = getWeekId(nextWeekDate);
+
+    // 3. Confirm with the user
+    const confirmMessage = weeklySchedules.some(ws => ws.id === nextWeekId) 
+        ? `A schedule for week ${nextWeekId} already exists. Are you sure you want to overwrite it with a clone of the current week?`
+        : `Are you sure you want to clone the schedule from week ${currentWeekId} to the next week (${nextWeekId})?`;
+    
+    const confirmClone = await showCustomModal('Confirm Clone', confirmMessage, true);
+    if (!confirmClone) return;
+    
+    // 4. Perform the deep copy for an exact clone
+    const clonedScheduleData = JSON.parse(JSON.stringify(currentScheduleObject.schedule));
+
+    // 5. Find or create the next week's entry in the main array
+    let nextWeekScheduleObject = weeklySchedules.find(ws => ws.id === nextWeekId);
+
+    if (nextWeekScheduleObject) {
+        // Overwrite existing schedule
+        nextWeekScheduleObject.schedule = clonedScheduleData;
+    } else {
+        // Create a new entry
+        weeklySchedules.push({
+            id: nextWeekId,
+            startDate: nextWeekId,
+            schedule: clonedScheduleData
+        });
+        // Sort the schedules by date after adding a new one
+        weeklySchedules.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    }
+    
+    // 6. Save data
+    saveToLocalStorage('weeklySchedules', weeklySchedules);
+    
+    // 7. Navigate to the new week and re-render
+    currentWeeklyScheduleStartDate = nextWeekDate;
+    renderWeeklySchedule();
+    showCustomModal('Success', `Successfully cloned schedule to week ${nextWeekId}.`);
+  };
+
+  // Toggles between standard and Excel-like view for the weekly schedule
+  document.getElementById('toggle-excel-view').onclick = () => {
+      isExcelView = !isExcelView;
+      const container = document.getElementById('weekly-sched-container');
+      const toggleButton = document.getElementById('toggle-excel-view');
+      if (container) {
+          if (isExcelView) {
+              container.classList.add('excel-view');
+              if (toggleButton) toggleButton.textContent = 'Standard View';
+          } else {
+              container.classList.remove('excel-view');
+              if (toggleButton) toggleButton.textContent = '📊 Excel View';
+          }
+      }
+      renderWeeklySchedule(); // Re-render to apply new styles
+  };
+
+  // Downloads the current weekly schedule as an Excel file
+  document.getElementById('download-weekly-excel').onclick = () => {
+    const currentWeekId = getWeekId(currentWeeklyScheduleStartDate);
+    const selectedWeeklySchedule = weeklySchedules.find(ws => ws.id === currentWeekId);
+
+    if (!selectedWeeklySchedule || Object.keys(selectedWeeklySchedule.schedule).length === 0) {
+      showCustomModal('Error', 'No data to download for the current week.');
+      return;
+    }
+
+    const wsData = [];
+    // Header Row 1: Employee No., Dealer Name, Position, and then merged cells for Weekdays with Dates
+    const headerRow1 = ['Employee No.', 'Dealer Name', 'Position'];
+    const { start } = getWeekRange(currentWeeklyScheduleStartDate);
+    for (let i = 0; i < 7; i++) {
+      const currentDay = new Date(start);
+      currentDay.setDate(start.getDate() + i);
+      headerRow1.push(`${WEEK_DAYS[currentDay.getDay()].substring(0,3)} (${currentDay.toLocaleDateString('en-US', {month: '2-digit', day: '2-digit'})})`, '', '');
+    }
+    wsData.push(headerRow1);
+
+    // Header Row 2: Empty for fixed columns, then 'Shift/Code', 'In', 'Out' for each day
+    const headerRow2 = ['', '', ''];
+    for (let i = 0; i < 7; i++) {
+        headerRow2.push('Shift/Code', 'In', 'Out');
+    }
+    wsData.push(headerRow2);
+
+    const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+    let currentRowInExcel = 2; // Start writing data from row 2 (0-indexed) after two header rows
+
+    dealers.forEach(d => {
+      // Retrieve current dealer's schedule data for the week, which is normalized
+      const dealerSchedule = selectedWeeklySchedule.schedule[d.id] || {
+          dealerRowColor: CUSTOM_COLORS.white,
+          supervisorRowColor: CUSTOM_COLORS.turquoise,
+          shifts: {}
+      };
+
+      // Dealer Row data
+      const dealerPositions = d.positions.filter(p => p.startsWith('Dealer')).join(', ') || '';
+      const dealerRowData = [d.employeeNumber, `${d.lastName}, ${d.firstName}`, dealerPositions];
+      let hasDealerShiftContent = false; // Flag to track if dealer row has any content to be written
+
+      // Supervisor Row data (initially empty, only filled if dealer is a Relief Sup)
+      let supRowData = [];
+      if (d.positions.includes('Relief Sup')) {
+          supRowData = [d.employeeNumber, `${d.lastName}, ${d.firstName}`, 'Relief Sup'];
+      }
+
+
+      const { start: excelIterStart } = getWeekRange(currentWeeklyScheduleStartDate);
+      for (let i = 0; i < 7; i++) {
+        const currentDay = new Date(excelIterStart);
+        currentDay.setDate(excelIterStart.getDate() + i);
+        const dayKey = currentDay.toISOString().split('T')[0];
+
+        // Get dealer shift details and colors. Provide defaults if missing.
+        const dealerShift = dealerSchedule.shifts[dayKey]?.dealer || {
+            shiftCode: '', timeIn: '', timeOut: '',
+            shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white
+        };
+        dealerRowData.push(dealerShift.shiftCode, dealerShift.timeIn, dealerShift.timeOut);
+        if (dealerShift.shiftCode || dealerShift.timeIn || dealerShift.timeOut) hasDealerShiftContent = true;
+
+        // Get supervisor shift details and colors. Provide defaults if missing.
+        if (d.positions.includes('Relief Sup')) {
+            const supShift = dealerSchedule.shifts[dayKey]?.supervisor || {
+                shiftCode: '', timeIn: '', timeOut: '',
+                shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white
+            };
+            supRowData.push(supShift.shiftCode, supShift.timeIn, supShift.timeOut);
+        }
+      }
+
+      // Add dealer row to worksheet only if it has content
+      if (hasDealerShiftContent || dealerPositions !== '') {
+          XLSX.utils.sheet_add_aoa(worksheet, [dealerRowData], { origin: -1 });
+
+          // Apply dealer row background color
+          const dealerRowBgColor = (dealerSchedule.dealerRowColor || CUSTOM_COLORS.white).substring(1).toUpperCase();
+          for (let c = 0; c < dealerRowData.length; c++) {
+              const cellRef = XLSX.utils.encode_cell({ r: currentRowInExcel, c: c });
+              if (!worksheet[cellRef]) worksheet[cellRef] = { t: 's', v: dealerRowData[c] || '' };
+              if (!worksheet[cellRef].s) worksheet[cellRef].s = {};
+              worksheet[cellRef].s = {
+                ...worksheet[cellRef].s,
+                fill: { fgColor: { rgb: dealerRowBgColor } }
+              };
+          }
+
+          // Apply individual cell colors for dealer row
+          let colIndex = 3; // Start from the first shift/code column
+          for (let i = 0; i < 7; i++) {
+            const currentDay = new Date(excelIterStart);
+            currentDay.setDate(excelIterStart.getDate() + i);
+            const dayKey = currentDay.toISOString().split('T')[0];
+            const dealerShift = dealerSchedule.shifts[dayKey]?.dealer || { shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white };
+
+            const cellsToColor = [
+                { field: 'shiftCodeColor', value: dealerShift.shiftCodeColor, cellOffset: 0, cellValue: dealerShift.shiftCode },
+                { field: 'timeInColor', value: dealerShift.timeInColor, cellOffset: 1, cellValue: dealerShift.timeIn },
+                { field: 'timeOutColor', value: dealerShift.timeOutColor, cellOffset: 2, cellValue: dealerShift.timeOut }
+            ];
+
+            cellsToColor.forEach(({ field, value, cellOffset, cellValue }) => {
+                if (value && value !== CUSTOM_COLORS.white) { // Only apply if not default white
+                    const cellRef = XLSX.utils.encode_cell({ r: currentRowInExcel, c: colIndex + cellOffset });
+                    if (!worksheet[cellRef]) worksheet[cellRef] = { t: 's', v: cellValue || '' };
+                    if (!worksheet[cellRef].s) worksheet[cellRef].s = {};
+                    const rgbColor = value.substring(1).toUpperCase();
+                    worksheet[cellRef].s = {
+                        ...worksheet[cellRef].s,
+                        fill: { fgColor: { rgb: rgbColor } }
+                    };
+                }
+            });
+            colIndex += 3;
+          }
+          currentRowInExcel++;
+      }
+
+      // Add supervisor row to worksheet (if dual-rate)
+      if (d.positions.includes('Relief Sup')) {
+          XLSX.utils.sheet_add_aoa(worksheet, [supRowData], { origin: -1 });
+
+          // Apply supervisor row background color
+          const supRowBgColor = (dealerSchedule.supervisorRowColor || CUSTOM_COLORS.turquoise).substring(1).toUpperCase();
+          for (let c = 0; c < supRowData.length; c++) {
+              const cellRef = XLSX.utils.encode_cell({ r: currentRowInExcel, c: c });
+              if (!worksheet[cellRef]) worksheet[cellRef] = { t: 's', v: supRowData[c] || '' };
+              if (!worksheet[cellRef].s) worksheet[cellRef].s = {};
+              worksheet[cellRef].s = {
+                ...worksheet[cellRef].s,
+                fill: { fgColor: { rgb: supRowBgColor } }
+              };
+          }
+
+          // Apply individual cell colors for supervisor row
+          let colIndex = 3;
+          for (let i = 0; i < 7; i++) {
+            const currentDay = new Date(excelIterStart);
+            currentDay.setDate(excelIterStart.getDate() + i);
+            const dayKey = currentDay.toISOString().split('T')[0];
+            const supShift = dealerSchedule.shifts[dayKey]?.supervisor || { shiftCodeColor: CUSTOM_COLORS.white, timeInColor: CUSTOM_COLORS.white, timeOutColor: CUSTOM_COLORS.white };
+
+            const cellsToColor = [
+                { field: 'shiftCodeColor', value: supShift.shiftCodeColor, cellOffset: 0, cellValue: supShift.shiftCode },
+                { field: 'timeInColor', value: supShift.timeInColor, cellOffset: 1, cellValue: supShift.timeIn },
+                { field: 'timeOutColor', value: supShift.timeOutColor, cellOffset: 2, cellValue: supShift.timeOut }
+            ];
+
+            cellsToColor.forEach(({ field, value, cellOffset, cellValue }) => {
+                if (value && value !== CUSTOM_COLORS.white) { // Only apply if not default white
+                    const cellRef = XLSX.utils.encode_cell({ r: currentRowInExcel, c: colIndex + cellOffset });
+                    if (!worksheet[cellRef]) worksheet[cellRef] = { t: 's', v: cellValue || '' };
+                    if (!worksheet[cellRef].s) worksheet[cellRef].s = {};
+                    const rgbColor = value.substring(1).toUpperCase();
+                    worksheet[cellRef].s = {
+                        ...worksheet[cellRef].s,
+                        fill: { fgColor: { rgb: rgbColor } }
+                    };
+                }
+            });
+            colIndex += 3;
+          }
+          currentRowInExcel++;
+      }
+    });
+
+    // Adjusted column widths for a more compact view
+    const colWidths = [
+        { wch: 10 }, // Employee No.
+        { wch: 18 }, // Dealer Name (combined from Last Name, First Name)
+        { wch: 12 }  // Position
+    ];
+    for (let i = 0; i < 7; i++) {
+        colWidths.push({ wch: 10 }, { wch: 7 }, { wch: 7 }); // Shift/Code, In, Out for each day
+    }
+    worksheet['!cols'] = colWidths;
+
+    // Merges for the first header row (Days)
+    const merges = [];
+    const numFixedColumns = 3;
+    for (let i = 0; i < 7; i++) {
+        const startCol = numFixedColumns + (i * 3);
+        merges.push({
+            s: { r: 0, c: startCol },
+            e: { r: 0, c: startCol + 2 }
+        });
+    }
+    worksheet['!merges'] = merges;
+
+    // Apply bold font and center alignment for header rows
+    const headerStyle = {
+      font: { bold: true },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      fill: { fgColor: { rgb: CUSTOM_COLORS.yellow.substring(1).toUpperCase() } }
+    };
+
+    // Apply style to header row 1 (days)
+    for (let c = 0; c < headerRow1.length; c++) {
+        const cellRef1 = XLSX.utils.encode_cell({ r: 0, c: c });
+        if (worksheet[cellRef1]) {
+            worksheet[cellRef1].s = { ...worksheet[cellRef1].s, ...headerStyle };
+        }
+    }
+    // Apply style to header row 2 (Shift/Code, In, Out)
+    for (let c = 0; c < headerRow2.length; c++) {
+        const cellRef2 = XLSX.utils.encode_cell({ r: 1, c: c });
+        if (worksheet[cellRef2]) {
+            worksheet[cellRef2].s = { ...worksheet[cellRef2].s, ...headerStyle };
+        }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, worksheet, "Weekly Schedule");
+    XLSX.writeFile(wb, `Weekly_Schedule_${currentWeekId}.xlsx`);
+  };
+
+
+  // --- Daily Schedule ---
+
+  function buildDailyScheduleHeader() {
+    const head = document.getElementById('sched-head');
+    if (!head) {
+        console.error("Element with ID 'sched-head' not found.");
+        return;
+    }
+    Array.from(head.children).forEach((child, index) => {
+      if (index >= 4) {
+        child.remove();
+      }
+    });
+
+    for (let i = 0; i < TOTAL_DAILY_SLOTS; i++) {
+      const time = slotToTime(i);
+      const th = document.createElement('th');
+      th.className = 'p-1 border-r border-gray-200 slot min-w-6';
+      th.textContent = time;
+      head.appendChild(th);
+    }
+  }
+
+  function renderDailySchedule() {
+    buildDailyScheduleHeader();
+    const body = document.getElementById('sched-body');
+    if (!body) {
+        console.error("Element with ID 'sched-body' not found.");
+        return;
+    }
+    body.innerHTML = '';
+
+    const sortedDailyRoster = [...dailyRoster].sort((a, b) => {
+      const timeA = parseTime(a.timeIn);
+      const timeB = parseTime(b.timeIn);
+      if (timeA.h !== timeB.h) return timeA.h - timeB.h;
+      return timeA.m - timeB.m;
+    });
+
+    sortedDailyRoster.forEach(r => {
+      const d = dealers.find(x => x.id === r.dealerId);
+      // Crucial check: if dealer is not found (e.g., deleted), skip this entry
+      if (!d) {
+        console.warn(`Dealer with ID ${r.dealerId} not found in dealers list for daily roster entry. Skipping rendering.`);
+        return; 
+      }
+
+      const tr = document.createElement('tr');
+      tr.dataset.id = r.id;
+
+      const timeInCell = document.createElement('td');
+      timeInCell.className = 'border-r border-b p-1';
+      timeInCell.innerHTML = `<input type='time' class='daily-time-input w-full text-center' value='${r.timeIn || ''}' data-field='timeIn' data-roster-id='${r.id}'>`;
+      tr.insertBefore(timeInCell, tr.firstChild);
+
+      const timeOutCell = document.createElement('td');
+      timeOutCell.className = 'border-r border-b p-1';
+      timeOutCell.innerHTML = `<input type='time' class='daily-time-input w-full text-center' value='${r.timeOut || ''}' data-field='timeOut' data-roster-id='${r.id}'>`;
+      timeInCell.after(timeOutCell);
+
+      const dealerNameCell = document.createElement('td');
+      dealerNameCell.className = 'border-r border-b p-2 font-semibold cursor-pointer hover:bg-gray-100';
+      dealerNameCell.textContent = `${d.lastName}, ${d.firstName}`;
+      dealerNameCell.dataset.rosterId = r.id;
+      dealerNameCell.addEventListener('contextmenu', showDealerContextMenu);
+      timeOutCell.after(dealerNameCell);
+      
+      const gamesCell = document.createElement('td');
+      gamesCell.className = 'border-r border-b p-2';
+      gamesCell.textContent = d.games.map(id => games.find(g => g.id === id)?.init || '').join('·');
+      dealerNameCell.after(gamesCell);
+
+      const inIdx = r.timeIn ? slotIndex(r.timeIn) : -1;
+      const outIdx = r.timeOut ? slotIndex(r.timeOut) : -1;
+
+      for (let i = 0; i < TOTAL_DAILY_SLOTS; i++) {
+        const td = document.createElement('td');
+        td.className = 'w-6 h-6 border-r border-b text-center select-none';
+        if (inIdx === -1 || outIdx === -1 || i < inIdx || i >= outIdx) {
+          td.classList.add('bg-gray-400');
+        } else {
+          td.classList.add('bg-gray-200', 'cursor-pointer', 'hover:bg-yellow-200', 'assignable-slot');
+          td.dataset.slotIndex = i;
+          td.onclick = handleDailyScheduleCellClick;
+          if (r.assignments && r.assignments[i]) {
+            td.textContent = r.assignments[i];
+            td.classList.remove('bg-gray-200');
+            td.classList.add('bg-blue-100');
+          }
+        }
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    });
+
+    document.querySelectorAll('.daily-time-input').forEach(input => {
+      input.onchange = handleDailyTimeChange;
+    });
+  }
+
+  async function handleDailyTimeChange(e) {
+    const rosterId = e.target.dataset.rosterId;
+    const field = e.target.dataset.field;
+    const newValue = e.target.value;
+
+    const rosterEntry = dailyRoster.find(r => r.id === rosterId);
+    if (rosterEntry) {
+      rosterEntry[field] = newValue;
+      const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+      saveToLocalStorage(`dailyRoster_${dateString}`, dailyRoster);
+      renderDailySchedule(); // Re-render to reflect changes
+    }
+  }
+
+  let currentClickedCell = null;
+  async function handleDailyScheduleCellClick(e) {
+    currentClickedCell = e.target;
+    const cell = e.target;
+    const tr = cell.parentElement;
+    const rosterEntryId = tr.dataset.id;
+    const r = dailyRoster.find(x => x.id === rosterEntryId);
+    const d = dealers.find(x => x.id === r.dealerId);
+
+    // Crucial check: if dealer is not found, prevent further actions
+    if (!d) {
+        console.error(`Dealer with ID ${r.dealerId} not found for roster entry ${rosterEntryId}. Cannot handle cell click.`);
+        showCustomModal('Error', 'Associated dealer data not found. Please re-add the dealer or refresh.');
+        return; 
+    }
+
+    const slotIndex = parseInt(cell.dataset.slotIndex);
+
+    const menu = document.getElementById('pickMenu');
+    if (!menu) {
+        console.error("Element with ID 'pickMenu' not found.");
+        return;
+    }
+    menu.innerHTML = '';
+
+    const usedTablesInSlot = Array.from(document.querySelectorAll('#sched-body tr'))
+      .map(row => {
+        const td = row.children[slotIndex + 4]; // Adjust index based on new table structure (Time In, Time Out, Dealer, Games, then slots)
+        return td ? td.textContent.trim() : '';
+      })
+      .filter(t => t && t !== '/' && t !== '');
+
+    const opts = tables
+      .filter(t => t.open && d.games.includes(t.gameId) && !usedTablesInSlot.includes(t.init))
+      .map(t => t.init);
+
+    opts.push('/', 'Clear');
+
+    if (r.assignments && r.assignments[slotIndex]) {
+        const removeOption = document.createElement('div');
+        removeOption.textContent = 'Remove Assignment';
+        removeOption.className = 'px-3 py-2 hover:bg-red-100 cursor-pointer text-red-600';
+        removeOption.onclick = () => {
+            cell.textContent = '';
+            cell.classList.remove('bg-blue-100');
+            cell.classList.add('bg-gray-200');
+            removeAssignment(rosterEntryId, slotIndex);
+            menu.classList.add('hidden');
+        };
+        menu.appendChild(removeOption);
+        const divider = document.createElement('hr');
+        divider.className = 'my-1 border-t border-gray-200';
+        menu.appendChild(divider);
+    }
+
+    opts.forEach(o => {
+      const div = document.createElement('div');
+      div.textContent = o;
+      div.className = 'px-3 py-2 hover:bg-gray-100 cursor-pointer';
+      div.onclick = () => {
+        cell.textContent = (o === 'Clear') ? '' : o;
+        if (o === 'Clear' || o === '/') {
+            cell.classList.remove('bg-blue-100');
+            cell.classList.add('bg-gray-200');
+        } else {
+            cell.classList.remove('bg-gray-200');
+            cell.classList.add('bg-blue-100');
+        }
+        assignTableToSlot(rosterEntryId, slotIndex, (o === 'Clear') ? '' : o);
+        menu.classList.add('hidden');
+      };
+      menu.appendChild(div);
+    });
+
+    const rect = cell.getBoundingClientRect();
+    menu.style.left = (rect.left + window.scrollX) + 'px';
+    menu.style.top = (rect.bottom + window.scrollY) + 'px';
+    menu.classList.remove('hidden');
+
+    const closeListener = (ev) => {
+      if (!menu.contains(ev.target) && ev.target !== cell) {
+        menu.classList.add('hidden');
+        document.removeEventListener('click', closeListener);
+      }
+    };
+    requestAnimationFrame(() => {
+        document.addEventListener('click', closeListener, { once: true });
+    });
+  }
+
+  async function assignTableToSlot(rosterId, slotIndex, tableInit) {
+    const rosterEntry = dailyRoster.find(r => r.id === rosterId);
+    if (rosterEntry) {
+      if (!rosterEntry.assignments) {
+        rosterEntry.assignments = {};
+      }
+      if (tableInit === '') {
+          delete rosterEntry.assignments[slotIndex];
+      } else {
+          rosterEntry.assignments[slotIndex] = tableInit;
+      }
+      const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+      saveToLocalStorage(`dailyRoster_${dateString}`, dailyRoster);
+      // No re-render needed as we update the cell directly
+    }
+  }
+
+  async function removeAssignment(rosterId, slotIndex) {
+    const rosterEntry = dailyRoster.find(r => r.id === rosterId);
+    if (rosterEntry && rosterEntry.assignments) {
+      delete rosterEntry.assignments[slotIndex];
+      const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+      saveToLocalStorage(`dailyRoster_${dateString}`, dailyRoster);
+    }
+  }
+
+  document.getElementById('schedule-date-picker').onchange = (e) => {
+    // Correctly handle date change to avoid time zone issues
+    const [year, month, day] = e.target.value.split('-').map(Number);
+    currentDailyRosterDate = new Date(year, month - 1, day);
+    const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+    dailyRoster = loadFromLocalStorage(`dailyRoster_${dateString}`); // Load roster for new date
+    renderDailySchedule();
+  };
+
+  let selectedDealerForDailyRoster = null;
+  document.getElementById('add-dealer-to-daily-roster').onclick = () => {
+    selectedDealerForDailyRoster = null;
+    document.getElementById('search-daily-dealer').value = '';
+    document.getElementById('confirm-add-daily-dealer').disabled = true;
+    populateDailyDealerModalList();
+    document.getElementById('add-daily-dealer-modal').classList.remove('hidden');
+  };
+
+  document.getElementById('cancel-add-daily-dealer').onclick = () => {
+    document.getElementById('add-daily-dealer-modal').classList.add('hidden');
+  };
+
+  document.getElementById('search-daily-dealer').oninput = populateDailyDealerModalList;
+
+  function populateDailyDealerModalList() {
+    const list = document.getElementById('daily-dealer-list');
+    if (!list) {
+        console.error("Element with ID 'daily-dealer-list' not found.");
+        return;
+    }
+    list.innerHTML = '';
+    const searchTerm = document.getElementById('search-daily-dealer').value.toLowerCase();
+    const confirmAddButton = document.getElementById('confirm-add-daily-dealer');
+
+    selectedDealerForDailyRoster = null;
+    if (confirmAddButton) {
+      confirmAddButton.disabled = true;
+    }
+
+    // Filter out dealers already in the daily roster for the current date
+    const dealersNotInRoster = dealers.filter(d => !dailyRoster.some(r => r.dealerId === d.id));
+
+    dealersNotInRoster
+      .filter(d => d.firstName.toLowerCase().includes(searchTerm) || d.lastName.toLowerCase().includes(searchTerm) || d.employeeNumber.toLowerCase().includes(searchTerm))
+      .forEach(d => {
+        const btn = document.createElement('button');
+        btn.className = 'block w-full text-left px-3 py-2 hover:bg-gray-100 transition-colors rounded-md';
+        btn.textContent = `${d.firstName} ${d.lastName} (${d.employeeNumber})`;
+        btn.onclick = () => {
+          selectedDealerForDailyRoster = d;
+          [...list.children].forEach(b => b.classList.remove('bg-blue-100'));
+          btn.classList.add('bg-blue-100');
+          if (confirmAddButton) {
+            confirmAddButton.disabled = false;
+          }
+        };
+        list.appendChild(btn);
+      });
+  }
+
+  document.getElementById('confirm-add-daily-dealer').onclick = async () => {
+    if (!selectedDealerForDailyRoster) {
+      showCustomModal('Error', 'Please select a dealer.');
+      return;
+    }
+    const timeInInput = document.getElementById('daily-dealer-time-in');
+    const timeOutInput = document.getElementById('daily-dealer-time-out');
+    const addDailyDealerModal = document.getElementById('add-daily-dealer-modal');
+
+    if (!timeInInput || !timeOutInput || !addDailyDealerModal) {
+        console.error("Daily dealer modal time input elements or modal not found.");
+        return;
+    }
+
+    const timeIn = timeInInput.value;
+    const timeOut = timeOutInput.value;
+    const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+
+    const rosterEntryId = uid();
+    dailyRoster.push({
+      id: rosterEntryId,
+      dealerId: selectedDealerForDailyRoster.id,
+      date: dateString,
+      timeIn: timeIn,
+      timeOut: timeOut,
+      assignments: {}
+    });
+    saveToLocalStorage(`dailyRoster_${dateString}`, dailyRoster);
+    addDailyDealerModal.classList.add('hidden');
+    renderDailySchedule(); // Re-render to show the new entry
+    populateDailyDealerModalList(); // Refresh list in case modal is reopened
+  };
+
+  let currentContextMenuRosterId = null;
+  function showDealerContextMenu(e) {
+    e.preventDefault(); // Prevent default browser context menu
+    const menu = document.getElementById('dealer-context-menu');
+    const targetCell = e.target;
+    if (!menu || !targetCell) {
+        console.error("Context menu or target cell not found.");
+        return;
+    }
+    currentContextMenuRosterId = targetCell.dataset.rosterId;
+
+    const rect = targetCell.getBoundingClientRect();
+    menu.style.left = (rect.left + window.scrollX) + 'px';
+    menu.style.top = (rect.bottom + window.scrollY) + 'px';
+    menu.classList.remove('hidden');
+
+    const closeMenu = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.classList.add('hidden');
+        document.removeEventListener('click', closeMenu);
+        document.removeEventListener('contextmenu', closeMenu);
+      }
+    };
+    setTimeout(() => {
+        document.addEventListener('click', closeMenu, { once: true });
+        document.addEventListener('contextmenu', closeMenu, { once: true });
+    });
+  }
+
+  document.getElementById('delete-daily-roster-entry').onclick = async () => {
+    if (currentContextMenuRosterId) {
+      const confirmDelete = await showCustomModal('Confirm Delete', 'Are you sure you want to remove this dealer from the daily roster?', true);
+      if (confirmDelete) {
+        dailyRoster = dailyRoster.filter(r => r.id !== currentContextMenuRosterId);
+        const dateString = currentDailyRosterDate.toISOString().split('T')[0];
+        saveToLocalStorage(`dailyRoster_${dateString}`, dailyRoster);
+        renderDailySchedule(); // Re-render to reflect the deletion
+        populateDailyDealerModalList(); // Refresh list in case modal is reopened
+      }
+      document.getElementById('dealer-context-menu').classList.add('hidden');
+      currentContextMenuRosterId = null;
+    }
+  };
+
+  // Initial load of all data when the script loads
+  loadAllData();
+
+</script>
+
+</body>
+</html>
